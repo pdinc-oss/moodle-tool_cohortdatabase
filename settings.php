@@ -77,7 +77,19 @@ if ($hassiteconfig) {
 
     $settings->add(new admin_setting_configtext('tool_cohortdatabase/minrecords',
         get_string('minrecords', 'tool_cohortdatabase'),
-        get_string('minrecords_desc', 'tool_cohortdatabase'), 1));
+        get_string('minrecords_desc', 'tool_cohortdatabase'), 10));
+
+    $settings->add(new admin_setting_configtext('tool_cohortdatabase/maxremovals',
+        get_string('maxremovals', 'tool_cohortdatabase'),
+        get_string('maxremovals_desc', 'tool_cohortdatabase'), 500));
+
+    $options = ['' => get_string('disabled', 'tool_cohortdatabase'),
+                'support' => get_string('supportuser', 'tool_cohortdatabase'),
+                'alladmins' => get_string('alladmins', 'tool_cohortdatabase')];
+
+    $settings->add(new admin_setting_configselect('tool_cohortdatabase/erroremails',
+        get_string('erroremails', 'tool_cohortdatabase'),
+        get_string('erroremails_desc', 'tool_cohortdatabase'), '', $options));
 
     $settings->add(new admin_setting_heading('tool_cohortdatabase_localheader',
         get_string('settingsheaderlocal', 'tool_cohortdatabase'), ''));
@@ -110,11 +122,24 @@ if ($hassiteconfig) {
         get_string('remotecohortdescfield', 'tool_cohortdatabase'),
         get_string('remotecohortdescfield_desc', 'tool_cohortdatabase'), ''));
 
+    $options = array(0 => get_string('no'),
+                     1 => get_string('yes'));
+    $settings->add(new admin_setting_configselect('tool_cohortdatabase/remotecohortdescupdate',
+        get_string('remotecohortdescupdate', 'tool_cohortdatabase'),
+        get_string('remotecohortdescupdate_desc', 'tool_cohortdatabase'), 0, $options));
+
     $options = array(0  => get_string('removefromcohort', 'tool_cohortdatabase'),
                      1  => get_string('keepincohort', 'tool_cohortdatabase'));
     $settings->add(new admin_setting_configselect('tool_cohortdatabase/removeaction',
         get_string('removedaction', 'tool_cohortdatabase'),
         get_string('removedaction_desc', 'tool_cohortdatabase'), 0, $options));
+
+    $options = [0 => get_string('no'),
+                1 => get_string('yes'),
+                2 => get_string('ifnotinuse', 'tool_cohortdatabase')];
+    $settings->add(new admin_setting_configselect('tool_cohortdatabase/emptycohortremoval',
+        get_string('emptycohortremoval', 'tool_cohortdatabase'),
+        get_string('emptycohortremoval_desc', 'tool_cohortdatabase'), 0, $options));
 
     $settings->add(new admin_setting_heading('tool_cohortdatabase_createusers',
         get_string('settingscreateusers', 'tool_cohortdatabase'), ''));

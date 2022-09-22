@@ -74,4 +74,21 @@ $string['createusers_auth_desc'] = 'The authentication type to set for these use
 $string['sync'] = 'Sync cohorts with external database';
 $string['minrecords'] = 'Minimum records';
 $string['minrecords_desc'] = 'Prevent the sync from running if the number of records returned in the external table is below this number (helps to prevent removal of users when the external table is empty).';
+$string['maxremovals'] = 'Maximum removals';
+$string['maxremovals_desc'] = 'Stop the sync from running and email admins if the number of cohort removals exceeds this number (helps to prevent accidental removal of lots of users). If set to 0 it will be ignored.';
+$string['maxremovalsexceeded'] = 'The cohort sync process has removed {$a->countdeletes} members from previous cohorts,
+and is now trying to delete {$a->todelete} members from cohortid: {$a->cohortid}
+this exceeds the max removal threshold of {$a->maxremovals} so the process was stopped.
+If this is unexpected you should check the validity of the data or it will attempt to continue removal on next cron.';
+$string['supportuser'] = 'Support user';
+$string['alladmins'] = 'All site admins';
+$string['disabled'] = 'Disabled';
+$string['erroremails'] = 'Email on error';
+$string['erroremails_desc'] = 'When an error during sync occurs, email these users';
 $string['privacy:metadata'] = 'The Cohort database plugin does not store any personal data.';
+$string['emptycohortremoval'] = 'Delete empty cohorts';
+$string['emptycohortremoval_desc'] = 'If set to no, if a cohort does not exist in the external source, it will ignore the sync process for that cohort. This is done for safety reasons - in case the external db connection fails weirdly and returns an empty result for a specific cohort.
+If set to not in use, it will only delete if the cohort is not attached to a cohort sync enrolment instance in a course.';
+$string['ifnotinuse'] = 'If not attached to a cohort enrolment.';
+$string['remotecohortdescupdate'] = 'Update description on sync';
+$string['remotecohortdescupdate_desc'] = 'If set to yes, the description field will be updated in Moodle if it is different in the external Db.';

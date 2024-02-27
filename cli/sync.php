@@ -32,7 +32,7 @@ require(__DIR__.'/../../../../config.php');
 require_once("$CFG->libdir/clilib.php");
 
 // Now get cli options.
-list($options, $unrecognized) = cli_get_params(array('verbose' => false, 'help' => false),
+list($options, $unrecognized) = cli_get_params(array('verbose' => false, 'help' => false, 'test' => false, 'sync' => false),
                                                array('v' => 'verbose', 'h' => 'help'));
 
 if ($unrecognized) {
@@ -40,12 +40,14 @@ if ($unrecognized) {
     cli_error(get_string('cliunknowoption', 'admin', $unrecognized));
 }
 
-if ($options['help']) {
+if ($options['help'] || !($options['test'] || $options['sync'])) {
     $help = "Execute cohort sync with external database.
 
 Options:
 -v, --verbose         Print verbose progress information
 -h, --help            Print out this help
+    --sync            Run sync() and exit
+    --test            Run test_settings() and exit
 
 Example:
 \$ sudo -u www-data /usr/bin/php admin/tool/cohortdatabase/cli/sync.php
@@ -63,6 +65,11 @@ if (empty($options['verbose'])) {
 
 $result = 0;
 $cohortdatabase = new tool_cohortdatabase_sync();
+
+if ($options['test']) {
+    $cohortdatabase->test_settings();
+    die;
+}
 
 $result = $result | $cohortdatabase->sync($trace);
 

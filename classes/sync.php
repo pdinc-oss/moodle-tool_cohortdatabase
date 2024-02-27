@@ -37,6 +37,7 @@ class tool_cohortdatabase_sync {
      * @var stdClass config for this plugin
      */
     protected $config;
+    protected $extdb;
 
     /**
      * Performs a full sync with external database.
@@ -50,6 +51,9 @@ class tool_cohortdatabase_sync {
         $this->config = get_config('tool_cohortdatabase');
 
         // Check if it is configured.
+        if ("MOODLE" === $this->config->dbtype) {
+
+        } else
         if (empty($this->config->dbtype) || empty($this->config->dbhost)) {
             $trace->finished();
             return 1;
@@ -89,7 +93,7 @@ class tool_cohortdatabase_sync {
             return 1;
         }
 
-        if (!$extdb = $this->db_init()) {
+        if (!$this->db_init()) {
             $trace->output('Error while communicating with external cohort database');
             $trace->finished();
             return 1;
@@ -101,15 +105,13 @@ class tool_cohortdatabase_sync {
         $minrecords = $this->config->minrecords;
         if (!empty($minrecords)) {
             $sql = "SELECT count(*) FROM $cohorttable";
-            if ($rs = $extdb->Execute($sql)) {
-                if (!$rs->EOF) {
-                    while ($fields = $rs->FetchRow()) {
-                        $count = array_pop($fields);
-                        if ($count >= $minrecords) {
-                            $hasenoughrecords = true;
-                        }
-                    }
+            if (($rs = $this->Execute($sql)) && ($rs->valid())) {
+                foreach ($rs as $count => $record)
+                {
+                    $hasenoughrecords = ($count >= $minrecords) ;
+                    break;
                 }
+                $rs->close();
             }
         }
         if (!$hasenoughrecords) {
@@ -135,32 +137,31 @@ class tool_cohortdatabase_sync {
             $sqlfields[] = $remotecohortdescfield;
         }
         $sql = $this->db_get_sql($cohorttable, array(), $sqlfields, true);
-        if ($rs = $extdb->Execute($sql)) {
-            if (!$rs->EOF) {
-                while ($fields = $rs->FetchRow()) {
-                    $fields = array_change_key_case($fields, CASE_LOWER);
+        if ($rs = $this->Execute($sql)) {
+            if ($rs->valid()) {
+                foreach ($rs as $fields) {
                     $fields = $this->db_decode($fields);
-                    if (empty($fields[$remotecohortidfieldl]) || empty($fields[$remotecohortnamefieldl])) {
+                    if (empty($fields->$remotecohortidfieldl) || empty($fields->$remotecohortnamefieldl)) {
                         $trace->output('error: invalid external cohort record, id and name are mandatory: '
                          . json_encode($fields), 1); // Hopefully every geek can read JS, right?
                         continue;
                     }
                     // Trim some values.
-                    $fields[$remotecohortidfieldl] = trim($fields[$remotecohortidfieldl]);
-                    $fields[$remotecohortnamefieldl] = trim($fields[$remotecohortnamefieldl]);
-                    if (!empty($remotecohortdescfield)) {
-                        $fields[$remotecohortdescfieldl] = trim($fields[$remotecohortdescfieldl]);
+                    $fields->$remotecohortidfieldl = trim($fields->$remotecohortidfieldl);
+                    $fields->$remotecohortnamefieldl = trim($fields->$remotecohortnamefieldl);
+                    if (!empty($remotecohortdescfield) && $fields->$remotecohortdescfieldl) {
+                        $fields->$remotecohortdescfieldl = trim($fields->$remotecohortdescfieldl);
                     }
 
-                    if (!empty($cohorts[$fields[$remotecohortidfieldl]])) {
+                    if (!empty($cohorts[$fields->$remotecohortidfieldl])) {
                         // If this cohort exists, check to see if it needs name/description updated.
-                        $existingcohort = $cohorts[$fields[$remotecohortidfieldl]];
-                        if ($existingcohort->name <> $fields[$remotecohortnamefieldl] ||
+                        $existingcohort = $cohorts[$fields->$remotecohortidfieldl];
+                        if ($existingcohort->name <> $fields->$remotecohortnamefieldl ||
                             (!empty($remotecohortdescfield) && !empty($this->config->remotecohortdescupdate) &&
-                             $existingcohort->description <> $fields[$remotecohortdescfieldl])) {
-                                $existingcohort->name = $fields[$remotecohortnamefieldl];
+                             $existingcohort->description <> $fields->$remotecohortdescfieldl)) {
+                                $existingcohort->name = $fields->$remotecohortnamefieldl;
                             if (!empty($remotecohortdescfield) && !empty($this->config->remotecohortdescupdate)) {
-                                $existingcohort->description = $fields[$remotecohortdescfieldl];
+                                $existingcohort->description = $fields->$remotecohortdescfieldl;
                             }
 
                             $DB->update_record('cohort', $existingcohort);
@@ -169,12 +170,12 @@ class tool_cohortdatabase_sync {
                     } else {
                         // Need to create this cohort.
                         $newcohort = new stdClass();
-                        $newcohort->idnumber = trim($fields[$remotecohortidfieldl]);
+                        $newcohort->idnumber = trim($fields->$remotecohortidfieldl);
                         if (!in_array($newcohort->idnumber, $newcohortids)) {
-                            $newcohort->name = trim($fields[$remotecohortnamefieldl]);
+                            $newcohort->name = trim($fields->$remotecohortnamefieldl);
 
-                            if (!empty($remotecohortdescfield)) {
-                                $newcohort->description = trim($fields[$remotecohortdescfieldl]);
+                            if (!empty($remotecohortdescfield) && $fields->$remotecohortdescfieldl) {
+                                $newcohort->description = trim($fields->$remotecohortdescfieldl);
                             }
                             $newcohort->component = 'tool_cohortdatabase';
                             $newcohort->timecreated = $now;
@@ -190,7 +191,7 @@ class tool_cohortdatabase_sync {
                     }
                 }
             }
-            $rs->Close();
+            $rs->close();
             $trace->output('Updated '.$cohortsupdated.' cohort names/descriptions');
             // Check to see if there are cohorts to insert.
             if (!empty($newcohorts)) {
@@ -198,7 +199,7 @@ class tool_cohortdatabase_sync {
                 $trace->output('Bulk insert of '.count($newcohorts).' new cohorts');
             }
         } else {
-            $extdb->Close();
+            $this->Close();
             $message = 'Cohort sync failed: Error reading data from the external cohort table';
             $this->email_admins($message);
             $trace->output($message);
@@ -236,19 +237,18 @@ class tool_cohortdatabase_sync {
             // Now get records from external table.
             $sqlfields = array($remoteuserfield);
             $sql = $this->db_get_sql($cohorttable, array($remotecohortidfield => $cohort->idnumber), $sqlfields, true);
-            if ($rs = $extdb->Execute($sql)) {
-                if (!$rs->EOF) {
-                    while ($fields = $rs->FetchRow()) {
-                        $fields = array_change_key_case($fields, CASE_LOWER);
+            if ($rs = $this->Execute($sql)) {
+                if ($rs->valid()) {
+                    foreach ($rs as $fields) {
                         $fields = $this->db_decode($fields);
-                        $fields[$remoteuserfieldl] = trim($fields[$remoteuserfieldl]);
-                        if (empty($fields[$remoteuserfieldl])) {
+                        $fields->$remoteuserfieldl = trim($fields->$remoteuserfieldl);
+                        if (empty($fields->$remoteuserfieldl)) {
                             $trace->output('error: invalid external cohort record, user fields is mandatory: ' .
                               json_encode($fields), 1); // Hopefully every geek can read JS, right?
                             continue;
                         }
                         $foundexternalcohort = true;
-                        $remotefield = strtolower($fields[$remoteuserfieldl]);
+                        $remotefield = strtolower($fields->$remoteuserfieldl);
                         if (!empty($currentusers[$remotefield])) {
                             // This user is already a member of the cohort.
                             unset($currentusers[$remotefield]);
@@ -256,13 +256,14 @@ class tool_cohortdatabase_sync {
                             // Add user to cohort.
                             $newmember = new stdClass();
                             $newmember->cohortid  = $cohort->id;
-                            $newmember->userid    = $fields[$remoteuserfieldl];
+                            $newmember->userid    = $fields->$remoteuserfieldl;
                             $newmember->timeadded = time();
                             $newmembers[] = $newmember;
                             $needusers[] = $remotefield;
                         }
                     }
                 }
+                $rs->close();
             }
 
             // If the cohort isn't found in external source, we only remove the cohort and users depending on settings.
@@ -347,27 +348,28 @@ class tool_cohortdatabase_sync {
                     }
                     $sql = "SELECT DISTINCT ".implode(",", $fields)."
                               FROM $cohorttable WHERE $remoteuserfield IN ('".implode("','", $missingusers)."')";
-                    if ($rs = $extdb->Execute($sql)) {
-                        if (!$rs->EOF) {
-                            while ($fields = $rs->FetchRow()) {
+                    if ($rs = $this->Execute($sql)) {
+                        if ($rs->valid()) {
+                            foreach ($rs as $fields) {
                                 if ($remotecreateusersauth == 'shibboleth'){ // if shibboleth authentication
                                     //Shibboleth attributes definition :
-                                    $_SERVER[$this->config->createusers_username] = $fields[$remotecreateusersusername];
-                                    $_SERVER[$this->config->createusers_firstname] = $fields[$remotecreateusersfirstname];
-                                    $_SERVER[$this->config->createusers_lastname] = $fields[$remotecreateuserslastname];
-                                    $_SERVER[$this->config->createusers_email] = $fields[$remotecreateusersemail];
+                                    $_SERVER[$this->config->createusers_username] = $fields->$remotecreateusersusername;
+                                    $_SERVER[$this->config->createusers_firstname] = $fields->$remotecreateusersfirstname;
+                                    $_SERVER[$this->config->createusers_lastname] = $fields->$remotecreateuserslastname;
+                                    $_SERVER[$this->config->createusers_email] = $fields->$remotecreateusersemail;
                                 }
-                                $user = create_user_record($fields[$remotecreateusersusername], '', $remotecreateusersauth);
-                                $user->email = $fields[$remotecreateusersemail];
-                                $user->firstname = $fields[$remotecreateusersfirstname];
-                                $user->lastname = $fields[$remotecreateuserslastname];
+                                $user = create_user_record($fields->$remotecreateusersusername, '', $remotecreateusersauth);
+                                $user->email = $fields->$remotecreateusersemail;
+                                $user->firstname = $fields->$remotecreateusersfirstname;
+                                $user->lastname = $fields->$remotecreateuserslastname;
                                 if (!empty($remotecreateusersidnumber)) {
-                                    $user->idnumber = $fields[$remotecreateusersidnumber];
+                                    $user->idnumber = $fields->$remotecreateusersidnumber;
                                 }
                                 user_update_user($user, false, false);
                                 $createdusers++;
                             }
                         }
+                        $rs->close();
                     }
                     $trace->output("Created $createdusers new users");
                 }
@@ -388,7 +390,7 @@ class tool_cohortdatabase_sync {
             }
         }
 
-        $extdb->Close();
+        $this->Close();
         $trace->finished();
         $this->cleanup();
         return 0;
@@ -421,9 +423,8 @@ class tool_cohortdatabase_sync {
         $this->config->debugdb = 1;
         error_reporting($CFG->debug);
 
-        $adodb = $this->db_init();
-
-        if (!$adodb || !$adodb->IsConnected()) {
+        //fixme: remove IsConnected, db_init should only succeed with it connected
+        if (!$this->db_init()) {
             $this->config->debugdb = $olddebugdb;
             $CFG->debug = $olddebug;
             ini_set('display_errors', $olddisplay);
@@ -435,26 +436,26 @@ class tool_cohortdatabase_sync {
         }
 
         if (!empty($cohorttable)) {
-            $rs = $adodb->Execute("SELECT *
+            $rs = $this->Execute("SELECT *
                                      FROM $cohorttable");
             if (!$rs) {
                 echo $OUTPUT->notification('Can not read external cohort table.', 'notifyproblem');
 
-            } else if ($rs->EOF) {
+            } else if (!$rs->valid()) {
                 echo $OUTPUT->notification('External cohort table is empty.', 'notifyproblem');
-                $rs->Close();
+                $rs->close();
 
             } else {
-                $fieldsobj = $rs->FetchObj();
-                $columns = array_keys((array)$fieldsobj);
+                $fieldsobj = $rs->current();
+                $columns = array_keys(get_object_vars($fieldsobj));
 
                 echo $OUTPUT->notification('External cohort table contains following columns:<br />'.
                     implode(', ', $columns), 'notifysuccess');
-                $rs->Close();
+                $rs->close();
             }
         }
 
-        $adodb->Close();
+        $this->Close();
 
         $this->config->debugdb = $olddebugdb;
         $CFG->debug = $olddebug;
@@ -470,30 +471,73 @@ class tool_cohortdatabase_sync {
      */
     public function db_init() {
         global $CFG;
+        global $DB;
 
-        require_once($CFG->libdir.'/adodb/adodb.inc.php');
+        require_once ($CFG->libdir . '/adodb/adodb.inc.php');
 
-        // Connect to the external database (forcing new connection).
-        $extdb = ADONewConnection($this->config->dbtype);
+        if ("MOODLE" === $this->config->dbtype) {
+            $this->extdb = null;
+        } else {
+            // Connect to the external database (forcing new connection).
+            $this->extdb = ADONewConnection($this->config->dbtype);
+        }
+
         if ($this->config->debugdb) {
-            $extdb->debug = true;
+            $this->debug(true);
             ob_start(); // Start output buffer to allow later use of the page headers.
         }
 
         // The dbtype my contain the new connection URL, so make sure we are not connected yet.
-        if (!$extdb->IsConnected()) {
-            $result = $extdb->Connect($this->config->dbhost, $this->config->dbuser, $this->config->dbpass,
-                $this->config->dbname, true);
-            if (!$result) {
-                return null;
+        if ($this->extdb) {
+            if (! $this->extdb->IsConnected()) {
+
+                $result = $this->extdb->Connect($this->config->dbhost, $this->config->dbuser, $this->config->dbpass, $this->config->dbname, true);
+                if (! $result) {
+                    return false;
+                }
             }
+            if (! $this->extdb->IsConnected())
+                return false;
+
+            $this->extdb->SetFetchMode(ADODB_FETCH_ASSOC);
         }
 
-        $extdb->SetFetchMode(ADODB_FETCH_ASSOC);
         if ($this->config->dbsetupsql) {
-            $extdb->Execute($this->config->dbsetupsql);
+            // CONVERT
+            $this->Execute($this->config->dbsetupsql);
         }
-        return $extdb;
+        return true;
+    }
+
+    protected function Execute($sql)
+    {
+        global $DB;
+
+        if ($this->extdb)
+        {
+            return new sync_moodle_recordset($this->extdb->Execute($sql), $this);
+        }
+        else
+        {
+            return $DB->get_recordset_sql($sql);
+        }
+    }
+
+    protected function Close()
+    {
+        if ($this->extdb)
+        {
+            $this->extdb->Close();
+        }
+    }
+
+    protected function debug($bool)
+    {
+        if ($this->extdb)
+        {
+            $this->extdb->debug=$bool;
+        }
+        // else (if) MOODLE, use site debugsettings, see: set_debug
     }
 
     /**
@@ -528,6 +572,11 @@ class tool_cohortdatabase_sync {
         if (empty($dbenc) || $dbenc == 'utf-8') {
             return $text;
         }
+        if (is_object($text)) {
+            foreach (get_object_vars($text) as $prop) {
+                $text->$prop = $this->db_decode($text->$prop);
+            }
+        } else
         if (is_array($text)) {
             foreach ($text as $k => $value) {
                 $text[$k] = $this->db_decode($value);
@@ -637,5 +686,99 @@ class tool_cohortdatabase_sync {
             $cohorts[$cohort->idnumber] = $cohort;
         }
         return $cohorts;
+    }
+}
+
+class sync_moodle_recordset extends moodle_recordset
+{
+
+    public function __construct($rsrc, tool_cohortdatabase_sync $db)
+    {
+        $this->rsrc = $rsrc;
+        $this->current = $this->fetch_next();
+        $this->db = $db;
+    }
+
+    public function close()
+    {
+        if ($this->rsrc) {
+            $this->rsrc->close();
+            $this->rsrc = null;
+        }
+        $this->current = null;
+        $this->buffer = null;
+        $this->unregister();
+    }
+
+    public function current(): stdClass
+    {
+        return (object) $this->current;
+    }
+
+    public function next(): void
+    {
+        if ($this->buffer === null) {
+            $this->current = $this->fetch_next();
+        } else {
+            $this->current = array_shift($this->buffer);
+        }
+    }
+
+    #[\ReturnTypeWillChange]
+    public function key()
+    {
+        // return first column value as key
+        if (! $this->current) {
+            return false;
+        }
+        $key = reset($this->current);
+        return $key;
+    }
+
+    public function valid(): bool
+    {
+        return ! empty($this->current);
+    }
+
+    public function __destruct()
+    {
+        $this->close();
+    }
+
+    /**
+     * Unregister recordset from the global list of open recordsets.
+     */
+    private function unregister()
+    {
+        if ($this->db) {
+            // we are not a real moodle DB
+            // $this->db->recordset_closed($this);
+            $this->db = null;
+        }
+    }
+
+    private function fetch_next()
+    {
+        if (! $this->rsrc) {
+            return false;
+        }
+        if (! $row = $this->rsrc->fetchRow()) {
+            $this->rsrc->close();
+            $this->rsrc = null;
+            $this->unregister();
+            return false;
+        }
+
+        $row = array_change_key_case($row, CASE_LOWER);
+        // Moodle expects everything from DB as strings.
+        foreach ($row as $k => $v) {
+            if (is_null($v)) {
+                continue;
+            }
+            if (! is_string($v)) {
+                $row[$k] = (string) $v;
+            }
+        }
+        return $row;
     }
 }

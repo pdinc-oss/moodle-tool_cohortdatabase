@@ -40,7 +40,7 @@ if ($hassiteconfig) {
     $options = array('', "pdo", "pdo_mssql", "pdo_sqlsrv", "access", "ado_access", "ado", "ado_mssql", "borland_ibase",
         "csv", "db2", "fbsql", "firebird", "ibase", "informix72", "informix", "mssql", "mssql_n", "mssqlnative", "mysql",
         "mysqli", "mysqlt", "oci805", "oci8", "oci8po", "odbc", "odbc_mssql", "odbc_oracle", "oracle", "postgres64",
-        "postgres7", "postgres", "proxy", "sqlanywhere", "sybase", "vfp");
+        "postgres7", "postgres", "proxy", "sqlanywhere", "sybase", "vfp", "MOODLE");
     $options = array_combine($options, $options);
     $settings->add(new admin_setting_configselect('tool_cohortdatabase/dbtype',
         get_string('dbtype', 'tool_cohortdatabase'),

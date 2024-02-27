@@ -685,6 +685,19 @@ class tool_cohortdatabase_sync {
             // Index the cohorts using idnumber for easy processing.
             $cohorts[$cohort->idnumber] = $cohort;
         }
+
+        // If the remotecohortincludemanual, then add in the manual Cohorts too.
+        if (! empty($this->config->remotecohortincludemanual)) {
+            if ((int) $this->config->remotecohortincludemanual == 1) {
+                $cohortrecords = $DB->get_records('cohort', array(
+                    'component' => ''
+                ), '', 'idnumber, id, name, description, contextid, descriptionformat, visible, component, timecreated, timemodified, theme');
+                foreach ($cohortrecords as $cohort) {
+                    // Index the cohorts using idnumber for easy processing.
+                    $cohorts[$cohort->idnumber] = $cohort;
+                }
+            }
+        }
         return $cohorts;
     }
 }

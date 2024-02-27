@@ -128,6 +128,10 @@ if ($hassiteconfig) {
         get_string('remotecohortdescupdate', 'tool_cohortdatabase'),
         get_string('remotecohortdescupdate_desc', 'tool_cohortdatabase'), 0, $options));
 
+    $settings->add(new admin_setting_configselect('tool_cohortdatabase/remotecohortincludemanual',
+        get_string('remotecohortincludemanual', 'tool_cohortdatabase'),
+        get_string('remotecohortincludemanual_desc', 'tool_cohortdatabase'), 0, $options));
+
     $options = array(0  => get_string('removefromcohort', 'tool_cohortdatabase'),
                      1  => get_string('keepincohort', 'tool_cohortdatabase'));
     $settings->add(new admin_setting_configselect('tool_cohortdatabase/removeaction',

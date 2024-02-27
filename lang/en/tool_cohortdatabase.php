@@ -92,3 +92,5 @@ If set to not in use, it will only delete if the cohort is not attached to a coh
 $string['ifnotinuse'] = 'If not attached to a cohort enrolment.';
 $string['remotecohortdescupdate'] = 'Update description on sync';
 $string['remotecohortdescupdate_desc'] = 'If set to yes, the description field will be updated in Moodle if it is different in the external Db.';
+$string['remotecohortincludemanual'] = 'Update manually created/managed cohort(s) on sync';
+$string['remotecohortincludemanual_desc'] = 'If set to yes, the Cohorts which are "Created manually" will be updated as if they are created by this plugin.';

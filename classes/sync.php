@@ -295,11 +295,16 @@ class tool_cohortdatabase_sync {
                 }
                 // Delete users no longer in cohort.
                 // Using core function for this is very slow (one by one) - use bulk delete instead.
-                list($csql, $params) = $DB->get_in_or_equal($currentusers);
-                $sql = "userid $csql AND cohortid = ?";
-                $params[] = $cohort->id;
-                $DB->delete_records_select('cohort_members', $sql, $params);
-                $trace->output('Bulk delete of '.count($currentusers).' users from cohortid'.$cohort->id);
+                $chunksize = 500; // Using 500 as a common guideline across many systems is to aim for a maximum of around 1000 items
+                $reserveQueue = $currentusers;
+                while (! empty($reserveQueue)) {
+                    $currentusers = array_splice($reserveQueue, 0, $chunksize);
+                    list ($csql, $params) = $DB->get_in_or_equal($currentusers);
+                    $sql = "userid $csql AND cohortid = ?";
+                    $params[] = $cohort->id;
+                    $DB->delete_records_select('cohort_members', $sql, $params);
+                    $trace->output('Bulk delete of ' . count($currentusers) . ' users from cohortid: ' . $cohort->id);
+                }
 
                 // Trigger removed events - used by enrolment plugins etc.
                 foreach ($currentusers as $removedid) {
